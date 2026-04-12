@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>薪資總表</title>
+<meta name="theme-color" content="#111111" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --bg:#050505;
+  --panel:#111111;
+  --panel2:#0d0d0d;
+  --border:#242424;
+  --gold:#f7c75c;
+  --text:#ffffff;
+  --muted:#9a9a9a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:20px;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",sans-serif;
+  position:relative;
+  overflow-x:hidden;
+}
+body::before{
+  content:"tsmc";
+  position:fixed;
+  top:28px;
+  right:32px;
+  font-size:140px;
+  font-weight:900;
+  color:rgba(247,199,92,.07);
+  z-index:0;
+  pointer-events:none;
+  user-select:none;
+}
+body::after{
+  content:"";
+  position:fixed;
+  top:18px;
+  right:18px;
+  width:260px;
+  height:260px;
+  border-radius:50%;
+  border:1px solid rgba(247,199,92,.08);
+  box-shadow:0 0 0 18px rgba(247,199,92,.03),0 0 0 36px rgba(247,199,92,.02);
+  z-index:0;
+  pointer-events:none;
+}
+.wrap{
+  position:relative;
+  z-index:1;
+  max-width:1480px;
+  margin:0 auto;
+}
+h1{
+  color:var(--gold);
+  margin:0 0 8px 0;
+  font-size:38px;
+}
+.subtitle{
+  color:#c7c7c7;
+  font-size:15px;
+  margin-bottom:18px;
+}
+.toolbar{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+.btn{
+  background:linear-gradient(180deg,#252525 0%,#171717 100%);
+  color:var(--gold);
+  border:1px solid #3f3f3f;
+  padding:11px 16px;
+  border-radius:14px;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+.btn:hover{
+  background:linear-gradient(180deg,#2f2f2f 0%,#1d1d1d 100%);
+}
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:22px;
+}
+.card{
+  background:radial-gradient(circle at top left,rgba(247,199,92,.08),transparent 35%),linear-gradient(180deg,#131313 0%,#0c0c0c 100%);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  min-height:112px;
+}
+.card h3{
+  margin:0 0 6px 0;
+  font-size:13px;
+  color:#d9d9d9;
+}
+.card .sub{
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:10px;
+}
+.card .value{
+  font-size:22px;
+  line-height:1.15;
+  font-weight:900;
+  color:var(--gold);
+}
+.section{margin-top:24px}
+.section h2{
+  color:var(--gold);
+  margin:0 0 10px 0;
+  font-size:22px;
+}
+.chart-box,
+.table-box,
+.pie-card{
+  background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
+  border:1px solid var(--border);
+  border-radius:18px;
+}
+.chart-box{padding:14px}
+#barChart{
+  width:100%;
+  height:440px !important;
+}
+.chart-hint{
+  margin-top:8px;
+  color:var(--muted);
+  font-size:13px;
+}
+#pieWrap{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.pie-card{padding:14px}
+.pie-title{
+  color:var(--gold);
+  font-size:18px;
+  font-weight:900;
+  margin-bottom:8px;
+}
+.pie-canvas{
+  width:100%;
+  height:320px !important;
+}
+.table-box{
+  overflow:auto;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:auto;
+}
+th,td{
+  border:1px solid #222;
+  padding:8px 6px;
+  text-align:center;
+  font-size:12px;
+  white-space:nowrap;
+}
+th{
+  color:var(--gold);
+  background:#111;
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+td{
+  color:#ededed;
+}
+.row-head{
+  font-weight:800;
+  color:#fff;
+}
+.sort-btn{
+  background:none;
+  border:none;
+  color:var(--gold);
+  cursor:pointer;
+  font-size:12px;
+  font-weight:800;
+}
+.sort-btn.active{color:#fff}
+.status{
+  margin-top:14px;
+  color:#b8b8b8;
+  font-size:13px;
+}
+.skeleton{
+  position:relative;
+  overflow:hidden;
+}
+.skeleton::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);
+  animation:shimmer 1.2s infinite;
+}
+@keyframes shimmer{
+  100%{transform:translateX(100%)}
+}
+@media (max-width:1400px){
+  .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (max-width:1000px){
+  #pieWrap{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  h1{font-size:30px}
+  .kpi-grid{grid-template-columns:1fr}
+  #barChart{height:360px !important}
+  .pie-canvas{height:280px !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>薪資總表</h1>
+  <div class="subtitle">Google Sheets 即時讀取版</div>
+
+  <div class="toolbar">
+    <button class="btn" type="button" onclick="reloadData()">重新整理資料</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="card">
+      <h3>登積日</h3>
+      <div class="sub">固定日期</div>
+      <div class="value">2020/12/13</div>
+    </div>
+
+    <div class="card">
+      <h3>到職年資</h3>
+      <div class="sub">自 2020/12/13 起算</div>
+      <div class="value" id="tenure">--</div>
+    </div>
+
+    <div class="card">
+      <h3>最新薪資收入</h3>
+      <div class="sub" id="kpiSalaryDate">--</div>
+      <div class="value" id="kpiSalary">--</div>
+    </div>
+
+    <div class="card">
+      <h3>最新分紅</h3>
+      <div class="sub" id="kpiBonusDate">--</div>
+      <div class="value" id="kpiBonus">--</div>
+    </div>
+
+    <div class="card">
+      <h3>當年度加班總計</h3>
+      <div class="sub" id="kpiOTYear">--</div>
+      <div class="value" id="kpiOT">--</div>
+    </div>
+
+    <div class="card">
+      <h3>當年度總收入</h3>
+      <div class="sub" id="kpiTotalYear">--</div>
+      <div class="value" id="kpiTotal">--</div>
+    </div>
+
+    <div class="card">
+      <h3>當年度總分紅</h3>
+      <div class="sub" id="kpiYearBonusLabel">--</div>
+      <div class="value" id="kpiYearBonus">--</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>薪資收入</h2>
+    <div class="chart-box skeleton" id="barChartBox">
+      <canvas id="barChart"></canvas>
+    </div>
+    <div class="chart-hint">可點選下方年度收入占比中的分類，連動高亮此圖中的對應收入項目。</div>
+  </div>
+
+  <div class="section">
+    <h2>年度收入占比</h2>
+    <div id="pieWrap"></div>
+  </div>
+
+  <div class="section">
+    <h2>年度薪資彙總</h2>
+    <div class="table-box skeleton" id="yearTableBox">
+      <table>
+        <thead>
+          <tr>
+            <th><button class="sort-btn active" data-key="year">年份 ↓</button></th>
+            <th><button class="sort-btn" data-key="maxSalary">當年最高薪資 ↕</button></th>
+            <th><button class="sort-btn" data-key="maxBonus">當年最高分紅 ↕</button></th>
+            <th><button class="sort-btn" data-key="maxOvertime">當年最高加班 ↕</button></th>
+            <th><button class="sort-btn" data-key="maxBaseSalary">當年最高本薪 ↕</button></th>
+            <th><button class="sort-btn" data-key="baseSalarySum">當年本薪總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="overtimeSum">當年加班總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="bonusSum">當年分紅總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="yearEndSum">當年年終 ↕</button></th>
+            <th><button class="sort-btn" data-key="esppSum">ESPP 自提總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="laborSum">勞保總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="healthMergedSum">健保總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="welfareSum">福利金總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="totalSalarySum">當年薪資總和 ↕</button></th>
+            <th><button class="sort-btn" data-key="avgMonthlySalary">平均月薪 ↕</button></th>
+          </tr>
+        </thead>
+        <tbody id="yearSummaryBody">
+          <tr><td colspan="15">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>當年度每月摘要</h2>
+    <div class="table-box" id="rawTableBox">
+      <table>
+        <thead>
+          <tr>
+            <th>月份</th>
+            <th>收入</th>
+            <th>支出</th>
+            <th>分紅</th>
+          </tr>
+        </thead>
+        <tbody id="rawBody">
+          <tr><td colspan="4">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="status" id="status">準備讀取資料...</div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbx89XdV3PXMypISsaIxDkDtlbURm8ojWKU-MJ3BwH9HislvBJbsHN8d6u5wkx2W1Y0qeQ/exec";
+const JOIN_DATE = new Date(2020, 11, 13);
+
+const colors = [
+  "#4e79a7","#f28e2b","#e15759","#76b7b2","#59a14f",
+  "#edc948","#b07aa1","#ff9da7","#9c755f","#bab0ab",
+  "#2f5597","#c55a11","#a61c00","#38761d","#674ea7","#ffd966"
+];
+
+let barChartInstance = null;
+let pieChartInstances = [];
+let activeCategory = null;
+let sortState = { key: "year", dir: "desc" };
+
+const pieLabelPlugin = {
+  id: "pieLabel",
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const dataset = chart.data.datasets[0];
+    const labels = chart.data.labels;
+    const meta = chart.getDatasetMeta(0);
+    const total = dataset.data.reduce((a, b) => a + b, 0);
+    if (!total) return;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    if (dataset.data.length === 1) {
+      const label = labels[0];
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 4;
+      ctx.font = "bold 20px sans-serif";
+      ctx.strokeText(label, chart.width / 2, chart.height / 2 - 18);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(label, chart.width / 2, chart.height / 2 - 18);
+
+      ctx.font = "bold 28px sans-serif";
+      ctx.strokeText("100%", chart.width / 2, chart.height / 2 + 18);
+      ctx.fillStyle = "#ffe082";
+      ctx.fillText("100%", chart.width / 2, chart.height / 2 + 18);
+      ctx.restore();
+      return;
+    }
+
+    meta.data.forEach((arc, i) => {
+      const val = dataset.data[i];
+      const pct = val / total * 100;
+      if (pct < 8) return;
+
+      const angle = (arc.startAngle + arc.endAngle) / 2;
+      const r = arc.outerRadius * 0.6;
+      const x = arc.x + Math.cos(angle) * r;
+      const y = arc.y + Math.sin(angle) * r;
+
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 4;
+
+      ctx.font = "bold 14px sans-serif";
+      ctx.strokeText(labels[i], x, y - 10);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(labels[i], x, y - 10);
+
+      ctx.font = "bold 20px sans-serif";
+      ctx.strokeText(pct.toFixed(1) + "%", x, y + 12);
+      ctx.fillStyle = "#ffe082";
+      ctx.fillText(pct.toFixed(1) + "%", x, y + 12);
+    });
+
+    ctx.restore();
+  }
+};
+
+function formatNumber(n) {
+  return Number(n || 0).toLocaleString("zh-TW");
+}
+
+function ymKey(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function setStatus(text) {
+  document.getElementById("status").innerText = text;
+}
+
+function setLoading(isLoading) {
+  document.getElementById("barChartBox").classList.toggle("skeleton", isLoading);
+  document.getElementById("yearTableBox").classList.toggle("skeleton", isLoading);
+}
+
+function animateValue(el, endValue, duration = 900) {
+  const clean = Number(String(endValue).replace(/,/g, "")) || 0;
+  const start = 0;
+  const startTime = performance.now();
+
+  function step(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    const value = Math.floor(start + (clean - start) * (1 - Math.pow(1 - progress, 3)));
+    el.innerText = value.toLocaleString("zh-TW");
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function updateSortButtons() {
+  document.querySelectorAll(".sort-btn").forEach(btn => {
+    const key = btn.dataset.key;
+    btn.classList.toggle("active", key === sortState.key);
+
+    const raw = btn.getAttribute("data-label") || btn.textContent.replace(/[↑↓↕]/g, "").trim();
+    btn.setAttribute("data-label", raw);
+    let arrow = "↕";
+    if (key === sortState.key) arrow = sortState.dir === "asc" ? "↑" : "↓";
+    btn.textContent = `${raw} ${arrow}`;
+  });
+}
+
+function bindSortButtons() {
+  document.querySelectorAll(".sort-btn").forEach(btn => {
+    const raw = btn.textContent.replace(/[↑↓↕]/g, "").trim();
+    btn.setAttribute("data-label", raw);
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.key;
+      if (sortState.key === key) {
+        sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+      } else {
+        sortState.key = key;
+        sortState.dir = "desc";
+      }
+      updateSortButtons();
+      if (window.__yearSummaryRows) renderYearSummaryTable(window.__yearSummaryRows);
+    });
+  });
+  updateSortButtons();
+}
+
+function calcTenureYearsDays() {
+  const now = new Date();
+  let years = now.getFullYear() - JOIN_DATE.getFullYear();
+  const anniversary = new Date(JOIN_DATE);
+  anniversary.setFullYear(JOIN_DATE.getFullYear() + years);
+
+  if (anniversary > now) {
+    years -= 1;
+    anniversary.setFullYear(JOIN_DATE.getFullYear() + years);
+  }
+
+  const diffMs = now - anniversary;
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return `${years}年 ${days}天`;
+}
+
+function destroyCharts() {
+  if (barChartInstance) {
+    barChartInstance.destroy();
+    barChartInstance = null;
+  }
+  pieChartInstances.forEach(c => c.destroy());
+  pieChartInstances = [];
+  document.getElementById("pieWrap").innerHTML = "";
+}
+
+function buildBarChart(data) {
+  const monthly = {};
+  const cats = new Set();
+
+  data.forEach(d => {
+    if (d.type !== "收入") return;
+    const k = ymKey(d.year, d.month);
+    if (!monthly[k]) monthly[k] = {};
+    monthly[k][d.category] = (monthly[k][d.category] || 0) + d.amount;
+    cats.add(d.category);
+  });
+
+  const labels = Object.keys(monthly).sort();
+  const categories = Array.from(cats);
+
+  const datasets = categories.map((cat, i) => ({
+    label: cat,
+    data: labels.map(m => monthly[m][cat] || 0),
+    backgroundColor: colors[i % colors.length],
+    borderColor: activeCategory === cat ? "#ffffff" : colors[i % colors.length],
+    borderWidth: activeCategory === cat ? 2 : 1,
+    hidden: activeCategory ? activeCategory !== cat : false,
+    stack: "income"
+  }));
+
+  const ctx = document.getElementById("barChart");
+  barChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700 },
+      plugins: {
+        legend: {
+          labels: { color: "#fff", boxWidth: 14 },
+          onClick: () => {}
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.dataset.label}: ${Number(context.raw).toLocaleString("zh-TW")}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { color: "#ddd" },
+          grid: { color: "#1f1f1f" }
+        },
+        y: {
+          stacked: true,
+          ticks: {
+            color: "#ddd",
+            callback: value => Number(value).toLocaleString("zh-TW")
+          },
+          grid: { color: "#1f1f1f" }
+        }
+      }
+    }
+  });
+}
+
+function buildPieCharts(yearly) {
+  const pieWrap = document.getElementById("pieWrap");
+  const years = Object.keys(yearly).sort((a, b) => Number(b) - Number(a));
+
+  years.forEach(year => {
+    const labels = Object.keys(yearly[year]);
+    const values = Object.values(yearly[year]);
+    const total = values.reduce((a, b) => a + b, 0);
+
+    const card = document.createElement("div");
+    card.className = "pie-card";
+
+    const title = document.createElement("div");
+    title.className = "pie-title";
+    title.textContent = `${year} 年度收入占比`;
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "pie-canvas";
+
+    card.appendChild(title);
+    card.appendChild(canvas);
+    pieWrap.appendChild(card);
+
+    const chart = new Chart(canvas, {
+      type: "pie",
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+          borderColor: "#000000",
+          borderWidth: 2,
+          hoverOffset: 18
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: function(evt, elements) {
+          if (!elements.length) {
+            activeCategory = null;
+            buildBarChart(window.__salaryData || []);
+            return;
+          }
+          const idx = elements[0].index;
+          const clicked = labels[idx];
+          activeCategory = activeCategory === clicked ? null : clicked;
+          buildBarChart(window.__salaryData || []);
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: "#ffffff",
+              boxWidth: 12,
+              font: { size: 13, weight: "bold" }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const value = Number(context.raw || 0);
+                const percent = total ? ((value / total) * 100).toFixed(1) : "0.0";
+                return `${context.label}: ${value.toLocaleString("zh-TW")} (${percent}%)`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [pieLabelPlugin]
+    });
+
+    pieChartInstances.push(chart);
+  });
+}
+
+function renderYearSummaryTable(rows) {
+  const tbody = document.getElementById("yearSummaryBody");
+  const sorted = [...rows].sort((a, b) => {
+    const factor = sortState.dir === "asc" ? 1 : -1;
+    return (a[sortState.key] - b[sortState.key]) * factor;
+  });
+
+  tbody.innerHTML = sorted.map(r => `
+    <tr>
+      <td class="row-head">${r.year}</td>
+      <td>${formatNumber(r.maxSalary)}</td>
+      <td>${formatNumber(r.maxBonus)}</td>
+      <td>${formatNumber(r.maxOvertime)}</td>
+      <td>${formatNumber(r.maxBaseSalary)}</td>
+      <td>${formatNumber(r.baseSalarySum)}</td>
+      <td>${formatNumber(r.overtimeSum)}</td>
+      <td>${formatNumber(r.bonusSum)}</td>
+      <td>${formatNumber(r.yearEndSum)}</td>
+      <td>${formatNumber(r.esppSum)}</td>
+      <td>${formatNumber(r.laborSum)}</td>
+      <td>${formatNumber(r.healthMergedSum)}</td>
+      <td>${formatNumber(r.welfareSum)}</td>
+      <td>${formatNumber(r.totalSalarySum)}</td>
+      <td>${formatNumber(r.avgMonthlySalary)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderMonthlySummary(data, currentYear) {
+  const tbody = document.getElementById("rawBody");
+  const monthlyMap = {};
+
+  data.forEach(d => {
+    if (Number(d.year) !== Number(currentYear)) return;
+
+    const month = Number(d.month);
+    if (!monthlyMap[month]) {
+      monthlyMap[month] = {
+        income: 0,
+        expense: 0,
+        bonus: 0
+      };
+    }
+
+    const type = String(d.type || "").trim();
+    const category = String(d.category || "").trim();
+    const amount = Number(d.amount || 0);
+
+    if (type === "收入") {
+      monthlyMap[month].income += amount;
+      if (category.includes("分紅")) {
+        monthlyMap[month].bonus += amount;
+      }
+    } else if (type === "支出") {
+      monthlyMap[month].expense += Math.abs(amount);
+    }
+  });
+
+  const months = Object.keys(monthlyMap).map(Number).sort((a, b) => b - a);
+
+  if (!months.length) {
+    tbody.innerHTML = `<tr><td colspan="4">沒有資料</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = months.map(month => {
+    const item = monthlyMap[month];
+    return `
+      <tr>
+        <td>${month}</td>
+        <td>${formatNumber(item.income)}</td>
+        <td>${formatNumber(item.expense)}</td>
+        <td>${formatNumber(item.bonus)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function processData(data) {
+  destroyCharts();
+  setLoading(false);
+
+  let yearly = {};
+  let yearlySummaryMap = {};
+  let latestY = 0, latestM = 0;
+
+  let latestSalaryIncome = 0;
+  let latestSalaryExpense = 0;
+  let latestBonus = 0;
+  let latestBonusDate = "";
+  let currentYearOT = 0;
+  let currentYearIncome = 0;
+  let currentYearExpense = 0;
+  let currentYearBonus = 0;
+
+  data.forEach(d => {
+    const year = Number(d.year);
+    const month = Number(d.month);
+    if (year > latestY || (year === latestY && month > latestM)) {
+      latestY = year;
+      latestM = month;
+    }
+  });
+
+  data.forEach(d => {
+    const year = Number(d.year);
+    const month = Number(d.month);
+    const type = String(d.type || "").trim();
+    const category = String(d.category || "").trim();
+    const amount = Number(d.amount || 0);
+
+    if (!yearly[year]) yearly[year] = {};
+    if (!yearlySummaryMap[year]) {
+      yearlySummaryMap[year] = {
+        year,
+        maxSalary: 0,
+        maxBonus: 0,
+        maxOvertime: 0,
+        maxBaseSalary: 0,
+        baseSalarySum: 0,
+        overtimeSum: 0,
+        bonusSum: 0,
+        yearEndSum: 0,
+        esppSum: 0,
+        laborSum: 0,
+        healthMergedSum: 0,
+        welfareSum: 0,
+        totalSalarySum: 0,
+        months: new Set()
+      };
+    }
+
+    yearlySummaryMap[year].months.add(month);
+
+    if (type === "收入") {
+      yearly[year][category] = (yearly[year][category] || 0) + amount;
+      yearlySummaryMap[year].totalSalarySum += amount;
+
+      if (amount > yearlySummaryMap[year].maxSalary) {
+        yearlySummaryMap[year].maxSalary = amount;
+      }
+
+      if (category.includes("本薪")) {
+        yearlySummaryMap[year].baseSalarySum += amount;
+        if (amount > yearlySummaryMap[year].maxBaseSalary) {
+          yearlySummaryMap[year].maxBaseSalary = amount;
+        }
+      }
+
+      if (category.includes("加班")) {
+        yearlySummaryMap[year].overtimeSum += amount;
+        if (amount > yearlySummaryMap[year].maxOvertime) {
+          yearlySummaryMap[year].maxOvertime = amount;
+        }
+      }
+
+      if (category.includes("分紅")) {
+        yearlySummaryMap[year].bonusSum += amount;
+        if (amount > yearlySummaryMap[year].maxBonus) {
+          yearlySummaryMap[year].maxBonus = amount;
+        }
+
+        if (year === latestY) {
+          currentYearBonus += amount;
+        }
+
+        const bonusKey = ymKey(year, month);
+        if (!latestBonusDate || bonusKey > latestBonusDate) {
+          latestBonusDate = bonusKey;
+          latestBonus = amount;
+        }
+      }
+
+      if (category.includes("年終")) {
+        yearlySummaryMap[year].yearEndSum += amount;
+      }
+
+      if (year === latestY && month === latestM) {
+        latestSalaryIncome += amount;
+      }
+
+      if (year === latestY && category.includes("加班")) {
+        currentYearOT += amount;
+      }
+
+      if (year === latestY) {
+        currentYearIncome += amount;
+      }
+
+    } else if (type === "支出") {
+      const expense = Math.abs(amount);
+
+      if (year === latestY && month === latestM) {
+        latestSalaryExpense += expense;
+      }
+
+      if (year === latestY) {
+        currentYearExpense += expense;
+      }
+
+      if (category.includes("ESPP")) yearlySummaryMap[year].esppSum += expense;
+      if (category.includes("勞保")) yearlySummaryMap[year].laborSum += expense;
+      if (category.includes("健保")) yearlySummaryMap[year].healthMergedSum += expense;
+      if (category.includes("福利金")) yearlySummaryMap[year].welfareSum += expense;
+    }
+  });
+
+  const yearSummaryRows = Object.values(yearlySummaryMap).map(r => {
+    const monthCount = r.months.size || 0;
+    return {
+      ...r,
+      avgMonthlySalary: monthCount ? Math.round(r.totalSalarySum / monthCount) : 0
+    };
+  });
+
+  window.__yearSummaryRows = yearSummaryRows;
+
+  const latestSalary = latestSalaryIncome - latestSalaryExpense;
+  const currentYearTotal = currentYearIncome - currentYearExpense;
+
+  document.getElementById("tenure").innerText = calcTenureYearsDays();
+  document.getElementById("kpiSalaryDate").innerText = `${latestY}-${String(latestM).padStart(2, "0")}`;
+  document.getElementById("kpiBonusDate").innerText = latestBonusDate || "--";
+  document.getElementById("kpiOTYear").innerText = `${latestY} 年`;
+  document.getElementById("kpiTotalYear").innerText = `${latestY} 年`;
+  document.getElementById("kpiYearBonusLabel").innerText = `${latestY} 年`;
+
+  animateValue(document.getElementById("kpiSalary"), latestSalary);
+  animateValue(document.getElementById("kpiBonus"), latestBonus);
+  animateValue(document.getElementById("kpiOT"), currentYearOT);
+  animateValue(document.getElementById("kpiTotal"), currentYearTotal);
+  animateValue(document.getElementById("kpiYearBonus"), currentYearBonus);
+
+  renderYearSummaryTable(yearSummaryRows);
+  buildBarChart(data);
+  buildPieCharts(yearly);
+  renderMonthlySummary(data, latestY);
+
+  setStatus(`資料更新完成：${new Date().toLocaleString("zh-TW")}`);
+}
+
+window.handleData = function(data) {
+  window.__salaryData = data;
+  processData(data);
+};
+
+function reloadData() {
+  loadData();
+}
+
+function loadData() {
+  setLoading(true);
+  setStatus("資料讀取中...");
+
+  const existing = document.getElementById("jsonp-loader");
+  if (existing) existing.remove();
+
+  const s = document.createElement("script");
+  s.id = "jsonp-loader";
+  s.src = API + "?callback=handleData&t=" + Date.now();
+  s.onerror = function() {
+    setLoading(false);
+    setStatus("資料讀取失敗，請檢查 Apps Script 部署與權限。");
+    alert("資料讀取失敗，請檢查 Apps Script 部署與權限。");
+  };
+  document.body.appendChild(s);
+}
+
+bindSortButtons();
+loadData();
+</script>
+</body>
+</html>
