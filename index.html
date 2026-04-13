@@ -358,6 +358,7 @@ td{
 <script>
 const API = "https://script.google.com/macros/s/AKfycbx89XdV3PXMypISsaIxDkDtlbURm8ojWKU-MJ3BwH9HislvBJbsHN8d6u5wkx2W1Y0qeQ/exec";
 const JOIN_DATE = new Date(2020, 11, 13);
+const PRIVACY_PASSWORD = "0622";
 
 const colors = [
   "#4e79a7","#f28e2b","#e15759","#76b7b2","#59a14f",
@@ -466,7 +467,19 @@ function renderPrivateValue(id, value) {
 }
 
 function togglePrivacy() {
-  isPrivacyMode = !isPrivacyMode;
+  if (isPrivacyMode) {
+    const input = window.prompt("請輸入密碼");
+    if (input === null) return;
+
+    if (input !== PRIVACY_PASSWORD) {
+      alert("密碼錯誤");
+      return;
+    }
+
+    isPrivacyMode = false;
+  } else {
+    isPrivacyMode = true;
+  }
 
   const btn = document.getElementById("togglePrivacyBtn");
   if (btn) {
