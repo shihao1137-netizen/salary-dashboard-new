@@ -117,6 +117,14 @@ h1{
   color:var(--gold);
   word-break:break-word;
 }
+.kpi-private{
+  cursor:pointer;
+  user-select:none;
+  transition:opacity .2s ease;
+}
+.kpi-private:hover{
+  opacity:.85;
+}
 .section{margin-top:24px}
 .section h2{
   color:var(--gold);
@@ -235,6 +243,7 @@ td{
 
   <div class="toolbar">
     <button class="btn" type="button" onclick="reloadData()">重新整理資料</button>
+    <button class="btn" type="button" id="togglePrivacyBtn" onclick="togglePrivacy()">顯示金額</button>
   </div>
 
   <div class="kpi-grid">
@@ -253,31 +262,31 @@ td{
     <div class="card">
       <h3>最新薪資收入</h3>
       <div class="sub" id="kpiSalaryDate">--</div>
-      <div class="value" id="kpiSalary">--</div>
+      <div class="value kpi-private" id="kpiSalary" onclick="togglePrivacy()">--</div>
     </div>
 
     <div class="card">
       <h3>最新分紅</h3>
       <div class="sub" id="kpiBonusDate">--</div>
-      <div class="value" id="kpiBonus">--</div>
+      <div class="value kpi-private" id="kpiBonus" onclick="togglePrivacy()">--</div>
     </div>
 
     <div class="card">
       <h3>當年度加班總計</h3>
       <div class="sub" id="kpiOTYear">--</div>
-      <div class="value" id="kpiOT">--</div>
+      <div class="value kpi-private" id="kpiOT" onclick="togglePrivacy()">--</div>
     </div>
 
     <div class="card">
       <h3>當年度總收入</h3>
       <div class="sub" id="kpiTotalYear">--</div>
-      <div class="value" id="kpiTotal">--</div>
+      <div class="value kpi-private" id="kpiTotal" onclick="togglePrivacy()">--</div>
     </div>
 
     <div class="card">
       <h3>當年度總分紅</h3>
       <div class="sub" id="kpiYearBonusLabel">--</div>
-      <div class="value" id="kpiYearBonus">--</div>
+      <div class="value kpi-private" id="kpiYearBonus" onclick="togglePrivacy()">--</div>
     </div>
   </div>
 
@@ -361,6 +370,15 @@ let pieChartInstances = [];
 let activeCategory = null;
 let sortState = { key: "year", dir: "desc" };
 
+let isPrivacyMode = true;
+const kpiRawValues = {
+  kpiSalary: 0,
+  kpiBonus: 0,
+  kpiOT: 0,
+  kpiTotal: 0,
+  kpiYearBonus: 0
+};
+
 const pieLabelPlugin = {
   id: "pieLabel",
   afterDatasetsDraw(chart) {
@@ -431,6 +449,42 @@ function ymKey(year, month) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+function maskValue() {
+  return "*****";
+}
+
+function renderPrivateValue(id, value) {
+  kpiRawValues[id] = Number(value || 0);
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  if (isPrivacyMode) {
+    el.innerText = maskValue();
+  } else {
+    el.innerText = Number(value || 0).toLocaleString("zh-TW");
+  }
+}
+
+function togglePrivacy() {
+  isPrivacyMode = !isPrivacyMode;
+
+  const btn = document.getElementById("togglePrivacyBtn");
+  if (btn) {
+    btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
+  }
+
+  Object.keys(kpiRawValues).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (isPrivacyMode) {
+      el.innerText = maskValue();
+    } else {
+      el.innerText = Number(kpiRawValues[id] || 0).toLocaleString("zh-TW");
+    }
+  });
+}
+
 function setStatus(text) {
   document.getElementById("status").innerText = text;
 }
@@ -438,20 +492,6 @@ function setStatus(text) {
 function setLoading(isLoading) {
   document.getElementById("barChartBox").classList.toggle("skeleton", isLoading);
   document.getElementById("yearTableBox").classList.toggle("skeleton", isLoading);
-}
-
-function animateValue(el, endValue, duration = 900) {
-  const clean = Number(String(endValue).replace(/,/g, "")) || 0;
-  const start = 0;
-  const startTime = performance.now();
-
-  function step(now) {
-    const progress = Math.min((now - startTime) / duration, 1);
-    const value = Math.floor(start + (clean - start) * (1 - Math.pow(1 - progress, 3)));
-    el.innerText = value.toLocaleString("zh-TW");
-    if (progress < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
 }
 
 function updateSortButtons() {
@@ -894,11 +934,11 @@ function processData(data) {
   document.getElementById("kpiTotalYear").innerText = `${latestY} 年`;
   document.getElementById("kpiYearBonusLabel").innerText = `${latestY} 年`;
 
-  animateValue(document.getElementById("kpiSalary"), latestSalary);
-  animateValue(document.getElementById("kpiBonus"), latestBonus);
-  animateValue(document.getElementById("kpiOT"), currentYearOT);
-  animateValue(document.getElementById("kpiTotal"), currentYearTotal);
-  animateValue(document.getElementById("kpiYearBonus"), currentYearBonus);
+  renderPrivateValue("kpiSalary", latestSalary);
+  renderPrivateValue("kpiBonus", latestBonus);
+  renderPrivateValue("kpiOT", currentYearOT);
+  renderPrivateValue("kpiTotal", currentYearTotal);
+  renderPrivateValue("kpiYearBonus", currentYearBonus);
 
   renderYearSummaryTable(yearSummaryRows);
   buildBarChart(data);
@@ -934,6 +974,11 @@ function loadData() {
   };
   document.body.appendChild(s);
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("togglePrivacyBtn");
+  if (btn) btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
+});
 
 bindSortButtons();
 loadData();
