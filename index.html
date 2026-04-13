@@ -115,6 +115,7 @@ h1{
   line-height:1.15;
   font-weight:900;
   color:var(--gold);
+  word-break:break-word;
 }
 .section{margin-top:24px}
 .section h2{
@@ -419,8 +420,11 @@ const pieLabelPlugin = {
   }
 };
 
-function formatNumber(n) {
-  return Number(n || 0).toLocaleString("zh-TW");
+function formatNumber(n, digits = 0) {
+  return Number(n || 0).toLocaleString("zh-TW", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
 }
 
 function ymKey(year, month) {
@@ -516,7 +520,7 @@ function buildBarChart(data) {
     if (d.type !== "收入") return;
     const k = ymKey(d.year, d.month);
     if (!monthly[k]) monthly[k] = {};
-    monthly[k][d.category] = (monthly[k][d.category] || 0) + d.amount;
+    monthly[k][d.category] = (monthly[k][d.category] || 0) + Number(d.amount || 0);
     cats.add(d.category);
   });
 
@@ -732,6 +736,7 @@ function processData(data) {
 
   let yearly = {};
   let yearlySummaryMap = {};
+  let monthlySalaryMap = {};
   let latestY = 0, latestM = 0;
 
   let latestSalaryIncome = 0;
@@ -759,6 +764,12 @@ function processData(data) {
     const category = String(d.category || "").trim();
     const amount = Number(d.amount || 0);
 
+    const ym = `${year}-${String(month).padStart(2, "0")}`;
+    if (!monthlySalaryMap[year]) monthlySalaryMap[year] = {};
+    if (!monthlySalaryMap[year][ym]) {
+      monthlySalaryMap[year][ym] = { incomeExBonus: 0 };
+    }
+
     if (!yearly[year]) yearly[year] = {};
     if (!yearlySummaryMap[year]) {
       yearlySummaryMap[year] = {
@@ -785,10 +796,6 @@ function processData(data) {
     if (type === "收入") {
       yearly[year][category] = (yearly[year][category] || 0) + amount;
       yearlySummaryMap[year].totalSalarySum += amount;
-
-      if (amount > yearlySummaryMap[year].maxSalary) {
-        yearlySummaryMap[year].maxSalary = amount;
-      }
 
       if (category.includes("本薪")) {
         yearlySummaryMap[year].baseSalarySum += amount;
@@ -819,6 +826,8 @@ function processData(data) {
           latestBonusDate = bonusKey;
           latestBonus = amount;
         }
+      } else {
+        monthlySalaryMap[year][ym].incomeExBonus += amount;
       }
 
       if (category.includes("年終")) {
@@ -853,6 +862,13 @@ function processData(data) {
       if (category.includes("健保")) yearlySummaryMap[year].healthMergedSum += expense;
       if (category.includes("福利金")) yearlySummaryMap[year].welfareSum += expense;
     }
+  });
+
+  Object.keys(yearlySummaryMap).forEach(year => {
+    const months = monthlySalaryMap[year] ? Object.values(monthlySalaryMap[year]) : [];
+    yearlySummaryMap[year].maxSalary = months.length
+      ? Math.max(...months.map(m => Number(m.incomeExBonus || 0)))
+      : 0;
   });
 
   const yearSummaryRows = Object.values(yearlySummaryMap).map(r => {
