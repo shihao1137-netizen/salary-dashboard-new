@@ -517,7 +517,7 @@ function buildBarChart(data) {
   const cats = new Set();
 
   data.forEach(d => {
-    if (d.type !== "收入") return;
+    if (String(d.type || "").trim() !== "收入") return;
     const k = ymKey(d.year, d.month);
     if (!monthly[k]) monthly[k] = {};
     monthly[k][d.category] = (monthly[k][d.category] || 0) + Number(d.amount || 0);
@@ -736,7 +736,7 @@ function processData(data) {
 
   let yearly = {};
   let yearlySummaryMap = {};
-  let monthlySalaryMap = {};
+  let monthlyIncomeMap = {};
   let latestY = 0, latestM = 0;
 
   let latestSalaryIncome = 0;
@@ -763,11 +763,14 @@ function processData(data) {
     const type = String(d.type || "").trim();
     const category = String(d.category || "").trim();
     const amount = Number(d.amount || 0);
-
     const ym = `${year}-${String(month).padStart(2, "0")}`;
-    if (!monthlySalaryMap[year]) monthlySalaryMap[year] = {};
-    if (!monthlySalaryMap[year][ym]) {
-      monthlySalaryMap[year][ym] = { incomeExBonus: 0 };
+
+    if (!monthlyIncomeMap[year]) monthlyIncomeMap[year] = {};
+    if (!monthlyIncomeMap[year][ym]) {
+      monthlyIncomeMap[year][ym] = {
+        incomeTotal: 0,
+        bonus: 0
+      };
     }
 
     if (!yearly[year]) yearly[year] = {};
@@ -796,6 +799,7 @@ function processData(data) {
     if (type === "收入") {
       yearly[year][category] = (yearly[year][category] || 0) + amount;
       yearlySummaryMap[year].totalSalarySum += amount;
+      monthlyIncomeMap[year][ym].incomeTotal += amount;
 
       if (category.includes("本薪")) {
         yearlySummaryMap[year].baseSalarySum += amount;
@@ -813,6 +817,8 @@ function processData(data) {
 
       if (category.includes("分紅")) {
         yearlySummaryMap[year].bonusSum += amount;
+        monthlyIncomeMap[year][ym].bonus += amount;
+
         if (amount > yearlySummaryMap[year].maxBonus) {
           yearlySummaryMap[year].maxBonus = amount;
         }
@@ -826,8 +832,6 @@ function processData(data) {
           latestBonusDate = bonusKey;
           latestBonus = amount;
         }
-      } else {
-        monthlySalaryMap[year][ym].incomeExBonus += amount;
       }
 
       if (category.includes("年終")) {
@@ -845,7 +849,6 @@ function processData(data) {
       if (year === latestY) {
         currentYearIncome += amount;
       }
-
     } else if (type === "支出") {
       const expense = Math.abs(amount);
 
@@ -865,9 +868,9 @@ function processData(data) {
   });
 
   Object.keys(yearlySummaryMap).forEach(year => {
-    const months = monthlySalaryMap[year] ? Object.values(monthlySalaryMap[year]) : [];
+    const months = monthlyIncomeMap[year] ? Object.values(monthlyIncomeMap[year]) : [];
     yearlySummaryMap[year].maxSalary = months.length
-      ? Math.max(...months.map(m => Number(m.incomeExBonus || 0)))
+      ? Math.max(...months.map(m => Number(m.incomeTotal || 0) - Number(m.bonus || 0)))
       : 0;
   });
 
