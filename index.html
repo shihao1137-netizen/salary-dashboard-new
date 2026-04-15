@@ -766,6 +766,11 @@ function resetEntryForm() {
   setFormMessage("");
 }
 
+
+      setFormMessage("請完整填寫年份、月份、類型、分類、金額", "error");
+      return;
+    }
+
 async function submitEntry() {
   try {
     setFormMessage("");
@@ -788,21 +793,17 @@ async function submitEntry() {
       return;
     }
 
-    const payload = {
-      year,
-      month,
-      type,
-      category,
-      amount,
-      note
-    };
+    const formBody = new URLSearchParams();
+    formBody.append("year", year);
+    formBody.append("month", month);
+    formBody.append("type", type);
+    formBody.append("category", category);
+    formBody.append("amount", amount);
+    formBody.append("note", note);
 
     const response = await fetch(API, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      body: formBody
     });
 
     const result = await response.json();
