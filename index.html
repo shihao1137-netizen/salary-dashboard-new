@@ -125,65 +125,6 @@ h1{
 .kpi-private:hover{
   opacity:.85;
 }
-.form-card{
-  background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:18px;
-  margin-bottom:22px;
-}
-.form-card h2{
-  margin:0 0 14px 0;
-  color:var(--gold);
-  font-size:22px;
-}
-.form-grid{
-  display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));
-  gap:12px;
-}
-.form-group{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.form-group label{
-  font-size:13px;
-  color:#d9d9d9;
-}
-.input, .select, .textarea{
-  width:100%;
-  background:#0f0f0f;
-  color:#fff;
-  border:1px solid #2c2c2c;
-  border-radius:12px;
-  padding:12px;
-  font-size:14px;
-}
-.textarea{
-  min-height:48px;
-  resize:vertical;
-}
-.hidden{
-  display:none !important;
-}
-.form-actions{
-  margin-top:14px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.message{
-  margin-top:12px;
-  font-size:14px;
-  color:#d7d7d7;
-}
-.success{
-  color:#9fe29f;
-}
-.error{
-  color:#ff9d9d;
-}
 .section{margin-top:24px}
 .section h2{
   color:var(--gold);
@@ -283,7 +224,6 @@ td{
 }
 @media (max-width:1400px){
   .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:1000px){
   #pieWrap{grid-template-columns:1fr}
@@ -291,7 +231,6 @@ td{
 @media (max-width:720px){
   h1{font-size:30px}
   .kpi-grid{grid-template-columns:1fr}
-  .form-grid{grid-template-columns:1fr}
   #barChart{height:360px !important}
   .pie-canvas{height:280px !important}
 }
@@ -349,56 +288,6 @@ td{
       <div class="sub" id="kpiYearBonusLabel">--</div>
       <div class="value kpi-private" id="kpiYearBonus" onclick="togglePrivacy()">--</div>
     </div>
-  </div>
-
-  <div class="form-card">
-    <h2>新增收入 / 支出</h2>
-    <div class="form-grid">
-      <div class="form-group">
-        <label for="formYear">年份</label>
-        <select id="formYear" class="select"></select>
-      </div>
-
-      <div class="form-group">
-        <label for="formMonth">月份</label>
-        <select id="formMonth" class="select"></select>
-      </div>
-
-      <div class="form-group">
-        <label for="formType">類型</label>
-        <select id="formType" class="select">
-          <option value="收入">收入</option>
-          <option value="支出">支出</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="formCategory">分類</label>
-        <select id="formCategory" class="select"></select>
-      </div>
-
-      <div class="form-group hidden" id="customCategoryWrap">
-        <label for="formCustomCategory">自訂分類</label>
-        <input id="formCustomCategory" class="input" placeholder="請輸入分類名稱" />
-      </div>
-
-      <div class="form-group">
-        <label for="formAmount">金額</label>
-        <input id="formAmount" class="input" type="number" inputmode="decimal" placeholder="請輸入金額" />
-      </div>
-
-      <div class="form-group" style="grid-column: span 2;">
-        <label for="formNote">備註</label>
-        <input id="formNote" class="input" placeholder="可留空" />
-      </div>
-    </div>
-
-    <div class="form-actions">
-      <button class="btn" type="button" onclick="submitEntry()">送出</button>
-      <button class="btn" type="button" onclick="resetEntryForm()">清空</button>
-    </div>
-
-    <div id="formMessage" class="message"></div>
   </div>
 
   <div class="section">
@@ -470,34 +359,6 @@ td{
 const API = "https://script.google.com/macros/s/AKfycbx89XdV3PXMypISsaIxDkDtlbURm8ojWKU-MJ3BwH9HislvBJbsHN8d6u5wkx2W1Y0qeQ/exec";
 const JOIN_DATE = new Date(2020, 11, 13);
 const PRIVACY_PASSWORD = "0622";
-
-const CATEGORY_OPTIONS = {
-  "收入": [
-    "本薪",
-    "加班",
-    "分紅",
-    "年終獎金",
-    "輪班津貼",
-    "春節紅包",
-    "特休代金",
-    "彈休代金",
-    "專案獎金",
-    "其他獎金",
-    "其他收入（手動輸入）"
-  ],
-  "支出": [
-    "勞保費",
-    "健保費",
-    "補充健保費",
-    "ESPP自願提繳",
-    "福利金",
-    "餐費",
-    "薪資所得稅",
-    "獎金所得稅",
-    "福委扣款",
-    "其他支出（手動輸入）"
-  ]
-};
 
 const colors = [
   "#4e79a7","#f28e2b","#e15759","#76b7b2","#59a14f",
@@ -646,13 +507,6 @@ function setLoading(isLoading) {
   document.getElementById("yearTableBox").classList.toggle("skeleton", isLoading);
 }
 
-function setFormMessage(text, type = "") {
-  const el = document.getElementById("formMessage");
-  el.className = "message";
-  if (type) el.classList.add(type);
-  el.innerText = text || "";
-}
-
 function updateSortButtons() {
   document.querySelectorAll(".sort-btn").forEach(btn => {
     const key = btn.dataset.key;
@@ -699,126 +553,6 @@ function calcTenureYearsDays() {
   const diffMs = now - anniversary;
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   return `${years}年 ${days}天`;
-}
-
-function initYearMonthOptions() {
-  const yearSelect = document.getElementById("formYear");
-  const monthSelect = document.getElementById("formMonth");
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-
-  yearSelect.innerHTML = "";
-  for (let y = currentYear + 1; y >= 2020; y--) {
-    const opt = document.createElement("option");
-    opt.value = y;
-    opt.textContent = y;
-    if (y === currentYear) opt.selected = true;
-    yearSelect.appendChild(opt);
-  }
-
-  monthSelect.innerHTML = "";
-  for (let m = 1; m <= 12; m++) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    if (m === currentMonth) opt.selected = true;
-    monthSelect.appendChild(opt);
-  }
-}
-
-function updateCategoryOptions() {
-  const type = document.getElementById("formType").value;
-  const categorySelect = document.getElementById("formCategory");
-  const customWrap = document.getElementById("customCategoryWrap");
-  const customInput = document.getElementById("formCustomCategory");
-  const options = CATEGORY_OPTIONS[type] || [];
-
-  categorySelect.innerHTML = "";
-  options.forEach(item => {
-    const opt = document.createElement("option");
-    opt.value = item;
-    opt.textContent = item;
-    categorySelect.appendChild(opt);
-  });
-
-  const isCustom = categorySelect.value.includes("手動輸入");
-  customWrap.classList.toggle("hidden", !isCustom);
-  if (!isCustom) customInput.value = "";
-}
-
-function onCategoryChange() {
-  const category = document.getElementById("formCategory").value;
-  const customWrap = document.getElementById("customCategoryWrap");
-  const customInput = document.getElementById("formCustomCategory");
-  const isCustom = category.includes("手動輸入");
-  customWrap.classList.toggle("hidden", !isCustom);
-  if (!isCustom) customInput.value = "";
-}
-
-function resetEntryForm() {
-  initYearMonthOptions();
-  document.getElementById("formType").value = "收入";
-  updateCategoryOptions();
-  document.getElementById("formAmount").value = "";
-  document.getElementById("formNote").value = "";
-  document.getElementById("formCustomCategory").value = "";
-  setFormMessage("");
-}
-
-
-      setFormMessage("請完整填寫年份、月份、類型、分類、金額", "error");
-      return;
-    }
-
-async function submitEntry() {
-  try {
-    setFormMessage("");
-
-    const year = Number(document.getElementById("formYear").value);
-    const month = Number(document.getElementById("formMonth").value);
-    const type = document.getElementById("formType").value;
-    const selectedCategory = document.getElementById("formCategory").value;
-    const customCategory = document.getElementById("formCustomCategory").value.trim();
-    const amount = Number(document.getElementById("formAmount").value);
-    const note = document.getElementById("formNote").value.trim();
-
-    let category = selectedCategory;
-    if (selectedCategory.includes("手動輸入")) {
-      category = customCategory;
-    }
-
-    if (!year || !month || !type || !category || !amount) {
-      setFormMessage("請完整填寫年份、月份、類型、分類、金額", "error");
-      return;
-    }
-
-    const formBody = new URLSearchParams();
-    formBody.append("year", year);
-    formBody.append("month", month);
-    formBody.append("type", type);
-    formBody.append("category", category);
-    formBody.append("amount", amount);
-    formBody.append("note", note);
-
-    const response = await fetch(API, {
-      method: "POST",
-      body: formBody
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || "送出失敗");
-    }
-
-    setFormMessage("新增成功，資料已寫入 Raw data", "success");
-    resetEntryForm();
-    reloadData();
-
-  } catch (error) {
-    setFormMessage(String(error), "error");
-  }
 }
 
 function destroyCharts() {
@@ -1257,12 +991,6 @@ function loadData() {
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("togglePrivacyBtn");
   if (btn) btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
-
-  initYearMonthOptions();
-  updateCategoryOptions();
-
-  document.getElementById("formType").addEventListener("change", updateCategoryOptions);
-  document.getElementById("formCategory").addEventListener("change", onCategoryChange);
 });
 
 bindSortButtons();
