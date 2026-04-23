@@ -151,7 +151,7 @@ h1{
   font-size:13px;
   color:#d9d9d9;
 }
-.input, .select{
+.input,.select{
   width:100%;
   background:#0f0f0f;
   color:#fff;
@@ -274,6 +274,11 @@ td{
 @keyframes shimmer{
   100%{transform:translateX(100%)}
 }
+.action-btn{
+  padding:6px 10px;
+  font-size:12px;
+  margin:0 2px;
+}
 @media (max-width:1400px){
   .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
   .form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -387,7 +392,7 @@ td{
     </div>
 
     <div class="form-actions">
-      <button class="btn" type="button" onclick="submitEntry()">送出</button>
+      <button class="btn" type="button" id="submitBtn" onclick="submitEntry()">送出</button>
       <button class="btn" type="button" onclick="resetEntryForm()">清空</button>
     </div>
 
@@ -438,6 +443,28 @@ td{
   </div>
 
   <div class="section">
+    <h2>最近 10 筆資料</h2>
+    <div class="table-box">
+      <table>
+        <thead>
+          <tr>
+            <th>年份</th>
+            <th>月份</th>
+            <th>類型</th>
+            <th>分類</th>
+            <th>金額</th>
+            <th>備註</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="recentBody">
+          <tr><td colspan="7">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>當年度每月摘要</h2>
     <div class="table-box" id="rawTableBox">
       <table>
@@ -462,7 +489,7 @@ td{
 <script>
 const API = "https://script.google.com/macros/s/AKfycbwjy0siUWnOqgb3kBjgO5jX8R1IWuJc-GtuAya9Ihvpi58TKCJoPluTT1BsJ7jUkQuAmQ/exec";
 const JOIN_DATE = new Date(2020, 11, 13);
-  const PRIVACY_PASSWORD = "0622";
+const PRIVACY_PASSWORD = "0622";
 
 const CATEGORY_OPTIONS = {
   "收入": [
@@ -502,6 +529,7 @@ let barChartInstance = null;
 let pieChartInstances = [];
 let activeCategory = null;
 let sortState = { key: "year", dir: "desc" };
+let editingRowIndex = null;
 
 let isPrivacyMode = true;
 const kpiRawValues = {
@@ -612,9 +640,7 @@ function togglePrivacy() {
   }
 
   const btn = document.getElementById("togglePrivacyBtn");
-  if (btn) {
-    btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
-  }
+  if (btn) btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
 
   Object.keys(kpiRawValues).forEach(id => {
     const el = document.getElementById(id);
@@ -744,12 +770,15 @@ function onCategoryChange() {
 }
 
 function resetEntryForm() {
+  editingRowIndex = null;
   initYearMonthOptions();
   document.getElementById("formType").value = "收入";
   updateCategoryOptions();
   document.getElementById("formAmount").value = "";
   document.getElementById("formNote").value = "";
   document.getElementById("formCustomCategory").value = "";
+  document.querySelector(".form-card h2").innerText = "新增收入 / 支出";
+  document.getElementById("submitBtn").innerText = "送出";
   setFormMessage("");
 }
 
@@ -766,54 +795,55 @@ function submitEntry() {
     const note = document.getElementById("formNote").value.trim();
 
     let category = selectedCategory;
-    if (selectedCategory.includes("手動輸入")) {
-      category = customCategory;
-    }
+    if (selectedCategory.includes("手動輸入")) category = customCategory;
 
     if (!year || !month || !type || !category || !amount) {
       setFormMessage("請完整填寫年份、月份、類型、分類、金額", "error");
       return;
     }
 
-    const callbackName = "handleAppendResult_" + Date.now();
+    const action = editingRowIndex ? "update" : "append";
+    const callbackName = "handleSubmitResult_" + Date.now();
+
     window[callbackName] = function(result) {
       try {
         if (!result || !result.success) {
           throw new Error((result && result.error) || "送出失敗");
         }
-
-        setFormMessage("新增成功，資料已寫入 Raw data", "success");
+        setFormMessage(result.message || "完成", "success");
         resetEntryForm();
         reloadData();
       } catch (err) {
         setFormMessage(String(err), "error");
       } finally {
         delete window[callbackName];
-        const old = document.getElementById("append-script");
+        const old = document.getElementById("submit-script");
         if (old) old.remove();
       }
     };
 
     const params = new URLSearchParams({
-      action: "append",
+      action,
       year: String(year),
       month: String(month),
-      type: type,
-      category: category,
+      type,
+      category,
       amount: String(amount),
-      note: note,
+      note,
       callback: callbackName,
       t: String(Date.now())
     });
 
-    const old = document.getElementById("append-script");
+    if (editingRowIndex) params.append("rowIndex", String(editingRowIndex));
+
+    const old = document.getElementById("submit-script");
     if (old) old.remove();
 
     const s = document.createElement("script");
-    s.id = "append-script";
+    s.id = "submit-script";
     s.src = API + "?" + params.toString();
     s.onerror = function() {
-      setFormMessage("這個功能晚點再修正", "error");
+      setFormMessage("送出失敗", "error");
       delete window[callbackName];
     };
     document.body.appendChild(s);
@@ -821,6 +851,103 @@ function submitEntry() {
   } catch (error) {
     setFormMessage(String(error), "error");
   }
+}
+
+function renderRecentRows(data) {
+  const tbody = document.getElementById("recentBody");
+  const recent = [...data].sort((a, b) => b.rowIndex - a.rowIndex).slice(0, 10);
+
+  if (!recent.length) {
+    tbody.innerHTML = `<tr><td colspan="7">沒有資料</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = recent.map(row => `
+    <tr>
+      <td>${row.year}</td>
+      <td>${row.month}</td>
+      <td>${row.type}</td>
+      <td>${row.category}</td>
+      <td>${formatNumber(Math.abs(row.amount))}</td>
+      <td>${row.note || ""}</td>
+      <td>
+        <button class="btn action-btn" onclick="editRow(${row.rowIndex})">編輯</button>
+        <button class="btn action-btn" onclick="deleteRow(${row.rowIndex})">刪除</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function editRow(rowIndex) {
+  const row = (window.__salaryData || []).find(x => Number(x.rowIndex) === Number(rowIndex));
+  if (!row) return;
+
+  editingRowIndex = row.rowIndex;
+  document.getElementById("formYear").value = row.year;
+  document.getElementById("formMonth").value = row.month;
+  document.getElementById("formType").value = row.type;
+  updateCategoryOptions();
+
+  const categorySelect = document.getElementById("formCategory");
+  const hasOption = [...categorySelect.options].some(opt => opt.value === row.category);
+
+  if (hasOption) {
+    categorySelect.value = row.category;
+    onCategoryChange();
+  } else {
+    const customValue = row.type === "收入" ? "其他收入（手動輸入）" : "其他支出（手動輸入）";
+    categorySelect.value = customValue;
+    onCategoryChange();
+    document.getElementById("formCustomCategory").value = row.category;
+  }
+
+  document.getElementById("formAmount").value = Math.abs(row.amount);
+  document.getElementById("formNote").value = row.note || "";
+  document.querySelector(".form-card h2").innerText = "編輯資料";
+  document.getElementById("submitBtn").innerText = "更新";
+
+  window.scrollTo({ top: document.querySelector(".form-card").offsetTop - 20, behavior: "smooth" });
+}
+
+function deleteRow(rowIndex) {
+  if (!confirm("確定要刪除這筆資料嗎？")) return;
+
+  const callbackName = "handleDeleteResult_" + Date.now();
+
+  window[callbackName] = function(result) {
+    try {
+      if (!result || !result.success) {
+        throw new Error((result && result.error) || "刪除失敗");
+      }
+      setFormMessage("刪除成功", "success");
+      reloadData();
+    } catch (err) {
+      setFormMessage(String(err), "error");
+    } finally {
+      delete window[callbackName];
+      const old = document.getElementById("delete-script");
+      if (old) old.remove();
+    }
+  };
+
+  const params = new URLSearchParams({
+    action: "delete",
+    rowIndex: String(rowIndex),
+    callback: callbackName,
+    t: String(Date.now())
+  });
+
+  const old = document.getElementById("delete-script");
+  if (old) old.remove();
+
+  const s = document.createElement("script");
+  s.id = "delete-script";
+  s.src = API + "?" + params.toString();
+  s.onerror = function() {
+    setFormMessage("刪除失敗", "error");
+    delete window[callbackName];
+  };
+  document.body.appendChild(s);
 }
 
 function destroyCharts() {
@@ -1023,9 +1150,7 @@ function renderMonthlySummary(data, currentYear) {
 
     if (type === "收入") {
       monthlyMap[month].income += amount;
-      if (category.includes("分紅")) {
-        monthlyMap[month].bonus += amount;
-      }
+      if (category.includes("分紅")) monthlyMap[month].bonus += amount;
     } else if (type === "支出") {
       monthlyMap[month].expense += Math.abs(amount);
     }
@@ -1144,9 +1269,7 @@ function processData(data) {
           yearlySummaryMap[year].maxBonus = amount;
         }
 
-        if (year === latestY) {
-          currentYearBonus += amount;
-        }
+        if (year === latestY) currentYearBonus += amount;
 
         const bonusKey = ymKey(year, month);
         if (!latestBonusDate || bonusKey > latestBonusDate) {
@@ -1155,31 +1278,16 @@ function processData(data) {
         }
       }
 
-      if (category.includes("年終")) {
-        yearlySummaryMap[year].yearEndSum += amount;
-      }
+      if (category.includes("年終")) yearlySummaryMap[year].yearEndSum += amount;
 
-      if (year === latestY && month === latestM) {
-        latestSalaryIncome += amount;
-      }
-
-      if (year === latestY && category.includes("加班")) {
-        currentYearOT += amount;
-      }
-
-      if (year === latestY) {
-        currentYearIncome += amount;
-      }
+      if (year === latestY && month === latestM) latestSalaryIncome += amount;
+      if (year === latestY && category.includes("加班")) currentYearOT += amount;
+      if (year === latestY) currentYearIncome += amount;
     } else if (type === "支出") {
       const expense = Math.abs(amount);
 
-      if (year === latestY && month === latestM) {
-        latestSalaryExpense += expense;
-      }
-
-      if (year === latestY) {
-        currentYearExpense += expense;
-      }
+      if (year === latestY && month === latestM) latestSalaryExpense += expense;
+      if (year === latestY) currentYearExpense += expense;
 
       if (category.includes("ESPP")) yearlySummaryMap[year].esppSum += expense;
       if (category.includes("勞保")) yearlySummaryMap[year].laborSum += expense;
@@ -1209,11 +1317,11 @@ function processData(data) {
   const currentYearTotal = currentYearIncome - currentYearExpense;
 
   document.getElementById("tenure").innerText = calcTenureYearsDays();
-  document.getElementById("kpiSalaryDate").innerText = `${latestY}-${String(latestM).padStart(2, "0")}`;
+  document.getElementById("kpiSalaryDate").innerText = latestY ? `${latestY}-${String(latestM).padStart(2, "0")}` : "--";
   document.getElementById("kpiBonusDate").innerText = latestBonusDate || "--";
-  document.getElementById("kpiOTYear").innerText = `${latestY} 年`;
-  document.getElementById("kpiTotalYear").innerText = `${latestY} 年`;
-  document.getElementById("kpiYearBonusLabel").innerText = `${latestY} 年`;
+  document.getElementById("kpiOTYear").innerText = latestY ? `${latestY} 年` : "--";
+  document.getElementById("kpiTotalYear").innerText = latestY ? `${latestY} 年` : "--";
+  document.getElementById("kpiYearBonusLabel").innerText = latestY ? `${latestY} 年` : "--";
 
   renderPrivateValue("kpiSalary", latestSalary);
   renderPrivateValue("kpiBonus", latestBonus);
@@ -1224,6 +1332,7 @@ function processData(data) {
   renderYearSummaryTable(yearSummaryRows);
   buildBarChart(data);
   buildPieCharts(yearly);
+  renderRecentRows(data);
   renderMonthlySummary(data, latestY);
 
   setStatus(`資料更新完成：${new Date().toLocaleString("zh-TW")}`);
@@ -1257,12 +1366,9 @@ function loadData() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("togglePrivacyBtn");
-  if (btn) btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
-
+  document.getElementById("togglePrivacyBtn").innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
   initYearMonthOptions();
   updateCategoryOptions();
-
   document.getElementById("formType").addEventListener("change", updateCategoryOptions);
   document.getElementById("formCategory").addEventListener("change", onCategoryChange);
 });
