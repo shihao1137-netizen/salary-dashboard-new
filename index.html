@@ -443,7 +443,7 @@ td{
   </div>
 
   <div class="section">
-    <h2>最近 10 筆資料</h2>
+    <h2 id="latestMonthTitle">最新一個月資料</h2>
     <div class="table-box">
       <table>
         <thead>
@@ -848,25 +848,50 @@ function submitEntry() {
 
 function renderRecentRows(data) {
   const tbody = document.getElementById("recentBody");
+  const titleEl = document.getElementById("latestMonthTitle");
 
-  const recent = [...data]
-    .filter(row => Number(row.rowIndex) > 1)
-    .sort((a, b) => Number(b.rowIndex) - Number(a.rowIndex))
-    .slice(0, 10);
-
-  if (!recent.length) {
+  if (!Array.isArray(data) || !data.length) {
+    if (titleEl) titleEl.innerText = "最新一個月資料";
     tbody.innerHTML = `<tr><td colspan="8">沒有資料</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = recent.map(row => `
+  let latestYear = 0;
+  let latestMonth = 0;
+
+  data.forEach(row => {
+    const y = Number(row.year || 0);
+    const m = Number(row.month || 0);
+    if (y > latestYear || (y === latestYear && m > latestMonth)) {
+      latestYear = y;
+      latestMonth = m;
+    }
+  });
+
+  const latestRows = [...data]
+    .filter(row =>
+      Number(row.year) === latestYear &&
+      Number(row.month) === latestMonth
+    )
+    .sort((a, b) => Number(b.rowIndex || 0) - Number(a.rowIndex || 0));
+
+  if (titleEl) {
+    titleEl.innerText = `最新一個月資料（${latestYear}-${String(latestMonth).padStart(2, "0")}）`;
+  }
+
+  if (!latestRows.length) {
+    tbody.innerHTML = `<tr><td colspan="8">沒有資料</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = latestRows.map(row => `
     <tr>
-      <td>${row.rowIndex}</td>
+      <td>${row.rowIndex || ""}</td>
       <td>${row.year}</td>
       <td>${row.month}</td>
       <td>${row.type}</td>
       <td>${row.category}</td>
-      <td>${formatNumber(Math.abs(row.amount))}</td>
+      <td>${formatNumber(Math.abs(row.amount || 0))}</td>
       <td>${row.note || ""}</td>
       <td>
         <button class="btn action-btn" onclick="editRow(${row.rowIndex})">編輯</button>
