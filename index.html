@@ -1175,6 +1175,13 @@ function renderMonthlySummary(data, currentYear) {
 }
 
 function processData(data) {
+  if (!Array.isArray(data)) {
+    setLoading(false);
+    setStatus("資料格式錯誤");
+    console.error("Unexpected data:", data);
+    return;
+  }
+
   destroyCharts();
   setLoading(false);
 
@@ -1210,9 +1217,7 @@ function processData(data) {
     const ym = `${year}-${String(month).padStart(2, "0")}`;
 
     if (!monthlyIncomeMap[year]) monthlyIncomeMap[year] = {};
-    if (!monthlyIncomeMap[year][ym]) {
-      monthlyIncomeMap[year][ym] = { incomeTotal: 0, bonus: 0 };
-    }
+    if (!monthlyIncomeMap[year][ym]) monthlyIncomeMap[year][ym] = { incomeTotal: 0, bonus: 0 };
 
     if (!yearly[year]) yearly[year] = {};
     if (!yearlySummaryMap[year]) {
