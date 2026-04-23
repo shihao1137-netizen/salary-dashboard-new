@@ -605,8 +605,13 @@ function formatNumber(n, digits = 0) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
+  
 }
-
+function isSalaryCategory(category) {
+  const name = String(category || "").trim();
+  return name === "本薪" || name === "加班" || name === "輪班津貼";
+}
+  
 function ymKey(year, month) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
@@ -1242,7 +1247,13 @@ function processData(data) {
     const ym = `${year}-${String(month).padStart(2, "0")}`;
 
     if (!monthlyIncomeMap[year]) monthlyIncomeMap[year] = {};
-    if (!monthlyIncomeMap[year][ym]) monthlyIncomeMap[year][ym] = { incomeTotal: 0, bonus: 0 };
+    if (!monthlyIncomeMap[year][ym]) {
+      monthlyIncomeMap[year][ym] = {
+        incomeTotal: 0,
+        salaryOnlyTotal: 0,
+        bonus: 0
+      };
+    }
 
     if (!yearly[year]) yearly[year] = {};
     if (!yearlySummaryMap[year]) {
@@ -1270,23 +1281,40 @@ function processData(data) {
     if (type === "收入") {
       yearly[year][category] = (yearly[year][category] || 0) + amount;
       yearlySummaryMap[year].totalSalarySum += amount;
+
+      // 全部收入
       monthlyIncomeMap[year][ym].incomeTotal += amount;
 
-      if (category.includes("本薪")) {
-        yearlySummaryMap[year].baseSalarySum += amount;
-        if (amount > yearlySummaryMap[year].maxBaseSalary) yearlySummaryMap[year].maxBaseSalary = amount;
+      // 最高薪資只保留 本薪 / 加班 / 輪班津貼
+      if (isSalaryCategory(category)) {
+        monthlyIncomeMap[year][ym].salaryOnlyTotal += amount;
       }
 
-      if (category.includes("加班")) {
+      if (category === "本薪") {
+        yearlySummaryMap[year].baseSalarySum += amount;
+        if (amount > yearlySummaryMap[year].maxBaseSalary) {
+          yearlySummaryMap[year].maxBaseSalary = amount;
+        }
+      }
+
+      if (category === "加班") {
         yearlySummaryMap[year].overtimeSum += amount;
-        if (amount > yearlySummaryMap[year].maxOvertime) yearlySummaryMap[year].maxOvertime = amount;
+        if (amount > yearlySummaryMap[year].maxOvertime) {
+          yearlySummaryMap[year].maxOvertime = amount;
+        }
       }
 
       if (category.includes("分紅")) {
         yearlySummaryMap[year].bonusSum += amount;
         monthlyIncomeMap[year][ym].bonus += amount;
-        if (amount > yearlySummaryMap[year].maxBonus) yearlySummaryMap[year].maxBonus = amount;
-        if (year === latestY) currentYearBonus += amount;
+
+        if (amount > yearlySummaryMap[year].maxBonus) {
+          yearlySummaryMap[year].maxBonus = amount;
+        }
+
+        if (year === latestY) {
+          currentYearBonus += amount;
+        }
 
         const bonusKey = ymKey(year, month);
         if (!latestBonusDate || bonusKey > latestBonusDate) {
@@ -1295,14 +1323,32 @@ function processData(data) {
         }
       }
 
-      if (category.includes("年終")) yearlySummaryMap[year].yearEndSum += amount;
-      if (year === latestY && month === latestM) latestSalaryIncome += amount;
-      if (year === latestY && category.includes("加班")) currentYearOT += amount;
-      if (year === latestY) currentYearIncome += amount;
+      if (category.includes("年終")) {
+        yearlySummaryMap[year].yearEndSum += amount;
+      }
+
+      if (year === latestY && month === latestM) {
+        latestSalaryIncome += amount;
+      }
+
+      if (year === latestY && category === "加班") {
+        currentYearOT += amount;
+      }
+
+      if (year === latestY) {
+        currentYearIncome += amount;
+      }
+
     } else if (type === "支出") {
       const expense = Math.abs(amount);
-      if (year === latestY && month === latestM) latestSalaryExpense += expense;
-      if (year === latestY) currentYearExpense += expense;
+
+      if (year === latestY && month === latestM) {
+        latestSalaryExpense += expense;
+      }
+
+      if (year === latestY) {
+        currentYearExpense += expense;
+      }
 
       if (category.includes("ESPP")) yearlySummaryMap[year].esppSum += expense;
       if (category.includes("勞保")) yearlySummaryMap[year].laborSum += expense;
@@ -1311,16 +1357,20 @@ function processData(data) {
     }
   });
 
+  // 當年最高薪資：只看 本薪 / 加班 / 輪班津貼 的單月合計
   Object.keys(yearlySummaryMap).forEach(year => {
     const months = monthlyIncomeMap[year] ? Object.values(monthlyIncomeMap[year]) : [];
     yearlySummaryMap[year].maxSalary = months.length
-      ? Math.max(...months.map(m => Number(m.incomeTotal || 0) - Number(m.bonus || 0)))
+      ? Math.max(...months.map(m => Number(m.salaryOnlyTotal || 0)))
       : 0;
   });
 
   const yearSummaryRows = Object.values(yearlySummaryMap).map(r => {
     const monthCount = r.months.size || 0;
-    return { ...r, avgMonthlySalary: monthCount ? Math.round(r.totalSalarySum / monthCount) : 0 };
+    return {
+      ...r,
+      avgMonthlySalary: monthCount ? Math.round(r.totalSalarySum / monthCount) : 0
+    };
   });
 
   window.__yearSummaryRows = yearSummaryRows;
@@ -1349,7 +1399,6 @@ function processData(data) {
 
   setStatus(`資料更新完成：${new Date().toLocaleString("zh-TW")}`);
 }
-
 window.handleData = function(data) {
   window.__salaryData = data;
   processData(data);
