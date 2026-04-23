@@ -448,6 +448,7 @@ td{
       <table>
         <thead>
           <tr>
+            <th>列號</th>
             <th>年份</th>
             <th>月份</th>
             <th>類型</th>
@@ -458,7 +459,7 @@ td{
           </tr>
         </thead>
         <tbody id="recentBody">
-          <tr><td colspan="7">載入中...</td></tr>
+          <tr><td colspan="8">載入中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -618,12 +619,7 @@ function renderPrivateValue(id, value) {
   kpiRawValues[id] = Number(value || 0);
   const el = document.getElementById(id);
   if (!el) return;
-
-  if (isPrivacyMode) {
-    el.innerText = maskValue();
-  } else {
-    el.innerText = Number(value || 0).toLocaleString("zh-TW");
-  }
+  el.innerText = isPrivacyMode ? maskValue() : Number(value || 0).toLocaleString("zh-TW");
 }
 
 function togglePrivacy() {
@@ -639,15 +635,12 @@ function togglePrivacy() {
     isPrivacyMode = true;
   }
 
-  const btn = document.getElementById("togglePrivacyBtn");
-  if (btn) btn.innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
+  document.getElementById("togglePrivacyBtn").innerText = isPrivacyMode ? "顯示金額" : "隱藏金額";
 
   Object.keys(kpiRawValues).forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.innerText = isPrivacyMode
-      ? maskValue()
-      : Number(kpiRawValues[id] || 0).toLocaleString("zh-TW");
+    el.innerText = isPrivacyMode ? maskValue() : Number(kpiRawValues[id] || 0).toLocaleString("zh-TW");
   });
 }
 
@@ -855,15 +848,20 @@ function submitEntry() {
 
 function renderRecentRows(data) {
   const tbody = document.getElementById("recentBody");
-  const recent = [...data].sort((a, b) => b.rowIndex - a.rowIndex).slice(0, 10);
+
+  const recent = [...data]
+    .filter(row => Number(row.rowIndex) > 1)
+    .sort((a, b) => Number(b.rowIndex) - Number(a.rowIndex))
+    .slice(0, 10);
 
   if (!recent.length) {
-    tbody.innerHTML = `<tr><td colspan="7">沒有資料</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">沒有資料</td></tr>`;
     return;
   }
 
   tbody.innerHTML = recent.map(row => `
     <tr>
+      <td>${row.rowIndex}</td>
       <td>${row.year}</td>
       <td>${row.month}</td>
       <td>${row.type}</td>
@@ -1213,10 +1211,7 @@ function processData(data) {
 
     if (!monthlyIncomeMap[year]) monthlyIncomeMap[year] = {};
     if (!monthlyIncomeMap[year][ym]) {
-      monthlyIncomeMap[year][ym] = {
-        incomeTotal: 0,
-        bonus: 0
-      };
+      monthlyIncomeMap[year][ym] = { incomeTotal: 0, bonus: 0 };
     }
 
     if (!yearly[year]) yearly[year] = {};
@@ -1249,26 +1244,18 @@ function processData(data) {
 
       if (category.includes("本薪")) {
         yearlySummaryMap[year].baseSalarySum += amount;
-        if (amount > yearlySummaryMap[year].maxBaseSalary) {
-          yearlySummaryMap[year].maxBaseSalary = amount;
-        }
+        if (amount > yearlySummaryMap[year].maxBaseSalary) yearlySummaryMap[year].maxBaseSalary = amount;
       }
 
       if (category.includes("加班")) {
         yearlySummaryMap[year].overtimeSum += amount;
-        if (amount > yearlySummaryMap[year].maxOvertime) {
-          yearlySummaryMap[year].maxOvertime = amount;
-        }
+        if (amount > yearlySummaryMap[year].maxOvertime) yearlySummaryMap[year].maxOvertime = amount;
       }
 
       if (category.includes("分紅")) {
         yearlySummaryMap[year].bonusSum += amount;
         monthlyIncomeMap[year][ym].bonus += amount;
-
-        if (amount > yearlySummaryMap[year].maxBonus) {
-          yearlySummaryMap[year].maxBonus = amount;
-        }
-
+        if (amount > yearlySummaryMap[year].maxBonus) yearlySummaryMap[year].maxBonus = amount;
         if (year === latestY) currentYearBonus += amount;
 
         const bonusKey = ymKey(year, month);
@@ -1279,13 +1266,11 @@ function processData(data) {
       }
 
       if (category.includes("年終")) yearlySummaryMap[year].yearEndSum += amount;
-
       if (year === latestY && month === latestM) latestSalaryIncome += amount;
       if (year === latestY && category.includes("加班")) currentYearOT += amount;
       if (year === latestY) currentYearIncome += amount;
     } else if (type === "支出") {
       const expense = Math.abs(amount);
-
       if (year === latestY && month === latestM) latestSalaryExpense += expense;
       if (year === latestY) currentYearExpense += expense;
 
@@ -1305,10 +1290,7 @@ function processData(data) {
 
   const yearSummaryRows = Object.values(yearlySummaryMap).map(r => {
     const monthCount = r.months.size || 0;
-    return {
-      ...r,
-      avgMonthlySalary: monthCount ? Math.round(r.totalSalarySum / monthCount) : 0
-    };
+    return { ...r, avgMonthlySalary: monthCount ? Math.round(r.totalSalarySum / monthCount) : 0 };
   });
 
   window.__yearSummaryRows = yearSummaryRows;
